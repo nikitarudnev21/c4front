@@ -13,7 +13,7 @@ export default {
 //const host = process.env.C4HOST
 //console.log("host ("+host+")")
 export default {
-    /*jsx: 'react',*/
+    jsx: 'react',
     alias: {
         'react': "/node_modules/@pika/react/source.development.js",
         'react-dom': "/node_modules/@pika/react-dom/source.development.js",

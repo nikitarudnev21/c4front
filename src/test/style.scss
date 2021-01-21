@@ -57,6 +57,16 @@ button {
         outline-offset: -0.1em;
         line-height: 1;
     }
+
+    &.fixed{
+        top: 0;
+        position: sticky;
+        z-index: 1;
+    }
+    .default{
+        z-index: 0;
+        position: relative;
+    }
 }
 
 //POPUP
@@ -75,27 +85,57 @@ button {
 }
 
 
+@mixin fixedCell {
+    &.fixed{
+        width: 100%;
+        padding: 0;
+        margin: 0;
+        border: none;
+        position: relative;
+        height: 1.7em;
+        /*
+        dynamic for each cell
+        max-width: 15em;
+        max-height: 1.3em;  */
+    }
+
+    .fixedWrapper{
+        position: fixed;
+        z-index: 1;
+        background-color: var(--color-secondaryColor);
+        width: inherit;
+        max-width: inherit;
+        min-width: inherit;
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        max-height: inherit;
+        display: flex;
+        align-items: center;
+    }
+}
+
 //GRID
 div.grid {
     border-collapse: collapse;
     --secondary-color: rgb(238, 238, 238);
     border-spacing: 0;
     --highlight-color: #f8f8cb;
-
-
     //TABLE
     >.tableHeadContainer {
         font-weight: bold;
         vertical-align: middle;
         overflow: visible;
         background-color: var(--color-secondaryColor);
-    
+
+        @include fixedCell;
+
         .clickableDiv:hover {
             opacity: 0.8;
             cursor: pointer;
         }
     }
-    
+
     >.tableCellContainer {
         border-width: 0.5px;
         border-style: solid;
@@ -109,6 +149,8 @@ div.grid {
         vertical-align: middle;
         display: flex;
         align-items: center;
+
+        @include fixedCell;
     }
 
 
@@ -156,14 +198,13 @@ div.grid {
         position: fixed;
     }
     
-
     .dragElement {
         height: 1.3em;
         width: 1.3em;
         display: block;
         margin: auto;
     }
-    
+
     >.emptyCell {
         border: 0.5px solid var(--color-secondaryColor);
     }

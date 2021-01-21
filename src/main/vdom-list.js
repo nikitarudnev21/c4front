@@ -150,13 +150,33 @@ const getGridCol = ({ colKey }) => CSS.escape(colKey)
 
 const spanAll = "1 / -1"
 
-export function GridCell({ identity, children, rowKey, rowKeyMod, colKey, expanding, expander, dragHandle, noDefCellClass, classNames: argClassNames, gridRow: argGridRow, gridColumn: argGridColumn, ...props }) {
+const em = v => v+'em'
+const fixedCan = (enableFixed, fixedColsList, fixedRowsList) => enableFixed && fixedColsList?.length || fixedRowsList?.length
+const fixedNeeds = (enableFixed, fixedRowsList, fixedColsList, rowKey, colKey) => enableFixed && fixedRowsList.includes(rowKey) || fixedColsList.includes(colKey)
+
+export function GridCell({ identity, children, rowKey, rowKeyMod, colKey, expanding, expander, dragHandle, noDefCellClass, classNames: argClassNames, gridRow: argGridRow, gridColumn: argGridColumn, widthParams, enableFixed, fixedRowsList, fixedColsList, ...props }) {
     const gridRow = argGridRow || getGridRow({ rowKey, rowKeyMod })
     const gridColumn = argGridColumn || getGridCol({ colKey })
     const style = { ...props.style, gridRow, gridColumn }
     const expanderProps = expanding==="expander" ? { 'data-expander': expander || 'passive' } : {}
     const argClassNamesStr = argClassNames ? argClassNames.join(" ") : ""
-    const className = noDefCellClass ? argClassNamesStr : `${argClassNamesStr} ${GRID_CLASS_NAMES.CELL}`
+    const className = noDefCellClass ? argClassNamesStr : `${argClassNamesStr} ${GRID_CLASS_NAMES.CELL}
+    ${fixedCan(enableFixed, fixedColsList, fixedRowsList) && fixedNeeds(enableFixed, fixedRowsList, fixedColsList, rowKey, colKey) ? " fixed" : "" }`
+    
+    if (fixedCan(enableFixed, fixedColsList, fixedRowsList)) {
+        const fixedCellNeeds = (fixedList, key) => fixedList.includes(key)
+        if (fixedCellNeeds(fixedRowsList, rowKey)) {
+            style.maxWidth = em(widthParams.max)
+            style.minWidth = em(widthParams.min)
+            style.maxHeight = em(1.5)
+        }
+        if (fixedCellNeeds(fixedColsList, colKey)) {
+            style.maxWidth = em(widthParams.max)
+            style.minWidth = em(widthParams.min)
+            style.maxHeight = em(1.5)
+        }
+    }
+   
     return $("div", { ...props, ...expanderProps, 'data-col-key': colKey, 'data-row-key': rowKey, "data-drag-handle": dragHandle, style, className }, children)
 }
 
@@ -178,13 +198,11 @@ export function GridRoot({ identity, rows, cols, children: rawChildren }) {
     const children = rawChildren || noChildren//Children.toArray(rawChildren)
     const [dragData, setDragData] = useState({})
     const { axis, patch: dropPatch } = dragData
-
     const rowKeys = useMemo(() => rowKeysOf(rows), [rows])
     const [patchedRowKeys, enqueueRowPatch] = useSortRoot(dragRowIdOf(identity), rowKeys, axis ? switchAxis(null, dropPatch)(axis) : null)
     const colKeys = useMemo(() => colKeysOf(cols), [cols])
     const [patchedColKeys, enqueueColPatch] = useSortRoot(dragColIdOf(identity), colKeys, axis ? switchAxis(dropPatch, null)(axis) : null)
     const patchedCols = useMemo(() => remapCols(cols)(patchedColKeys), [cols, patchedColKeys])
-
     const [gridElement, setGridElement] = useState(null)
 
     const [rootDragStyle, onMouseDown, draggingStart] = useGridDrag({
@@ -210,7 +228,6 @@ export function GridRoot({ identity, rows, cols, children: rawChildren }) {
     const gridTemplateColumns = useMemo(() => getGridTemplateColumns(
         hideExpander(hasHiddenCols)(hideElementsForHiddenCols(false,col=>col.colKey)(patchedCols))
     ), [patchedCols, hideElementsForHiddenCols, hasHiddenCols])
-
     const { toExpanderElements, getExpandedCells } = useExpandedElements(expanded, setExpandedItem)
 
     const allChildren = useMemo(()=>getAllChildren({
@@ -221,7 +238,6 @@ export function GridRoot({ identity, rows, cols, children: rawChildren }) {
         const { dragKey, axis } = draggingStart
         if (axis === "y") setExpandedItem(dragKey, v => false)
     }, [setExpandedItem, draggingStart])
-
     const style = { ...rootDragStyle, display: "grid", gridTemplateRows, gridTemplateColumns }
     const res = $("div", { onMouseDown, style, className: "grid", ref: setGridElement }, allChildren)
     return $(NoCaptionContext.Provider,{value:true},res)
@@ -363,6 +379,7 @@ const useGridDrag = ({ dragData, setDragData, gridElement, keys, enqueuePatch })
         const movedUp = /*true to left*/ targetPos < dropPlace.rectFrom
         const varDragFrom = movedUp ? "" : targetPos + "px"
         //console.log(targetPos, dropPlace)
+        console.log(varDragFrom);
 
         //const varDragFrom = targetPos+"px"
         const clientSize = getClientSize(axis)(doc.documentElement)

@@ -52,4 +52,17 @@ export const useEventListener = (el,evName,callback) => {
     },[el,evName,callback])
 }
 
+export const useAnimationFrame = (element,callback) => {
+    useEffect(() => {
+        if(!callback || !element) return
+        const {requestAnimationFrame,cancelAnimationFrame} = element.ownerDocument.defaultView
+        const animate = () => {
+            callback()
+            req = requestAnimationFrame(animate,element)
+        }
+        let req = requestAnimationFrame(animate,element)
+        return () => cancelAnimationFrame(req)
+    },[element,callback])
+}
+
 export const NoCaptionContext = createContext()

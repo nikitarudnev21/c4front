@@ -16,9 +16,9 @@ const getMaxTableWidthWithout = (cols=[], hidedColNames=[]) => {
 
 // mock
 
-function ProjectCell() {
+function ProjectCell(enableFixed, colKey, fixedRowsList) {
     const strs = ["CLDN Export", "DFDS Import", "CLDN Import", "Depot", "Line Equipment"]
-    return getRandomText(strs)
+    return FixedWrapper(getRandomText(strs),enableFixed, colKey, fixedRowsList)
 }
 
 function StockCell() {
@@ -84,9 +84,7 @@ function Text({ value, className }) {
 }
 
 function ButtonElement({ caption, BGcolor, onClick }) {
-    return (
-        <button className={`${BGcolor}Color`} onClick={onClick}>{caption}</button>
-    )
+    return <button className={`${BGcolor}Color`} onClick={onClick}>{caption}</button>
 }
 
 function ExampleTextInput(inputKey){
@@ -104,9 +102,13 @@ function ImageElement({src,className}){
     return $("img",{src,className,draggable:"false"})
 }
 
+function FixedWrapper(children, enableFixed, key, fixedList){
+    return enableFixed && fixedList.includes(key) ? <div className="fixedWrapper">{children}</div> : children
+}
+
 // list
 
-function VdomListElement({maxFilterAreaWidth, setMaxFilterAreaWidth, enableDrag, cols, setCols}) {
+function VdomListElement({maxFilterAreaWidth, setMaxFilterAreaWidth, enableDrag, cols, setCols, enableFixed, fixedRowsList, fixedColsList}) {
     const exCol =  (colKey, hideWill, min, max, caption) => ({
         colKey, hideWill, caption,
         width: { tp: "bound", min, max },
@@ -134,26 +136,27 @@ function VdomListElement({maxFilterAreaWidth, setMaxFilterAreaWidth, enableDrag,
         ].filter(Boolean))
     }, [setCols, enableDrag])
 
-    const exCell = rowKey => ({colKey, caption}) => {
+    const exCell = rowKey => ({colKey, caption, width}) => {
         const key = ":" + rowKey + colKey
-        return colKey==="drag" && rowKey === "drag" ? $("div", {className: "emptyCell", key: "emptyCell"}) : $(GridCell, {
-            key, rowKey, colKey,
-            ...(rowKey === "head" ? { className: "tableHeadContainer headerColor" } : {}),
+        return /*colKey === "drag" && rowKey === "drag" ? $("div", {className: "emptyCell", key: "emptyCell"}) : */ $(GridCell, {
+            key, rowKey, colKey, widthParams: width, enableFixed, fixedRowsList, fixedColsList,
+            ...(rowKey === "head" ? { className: "tableHeadContainer headerColor"} : {}),
             ...(rowKey === "drag" ? { dragHandle: "x", style: { userSelect: "none", cursor: "pointer" } } : {}),
             ...(colKey === "drag" ? { dragHandle: "y", style: { userSelect: "none", cursor: "pointer" } } : {}),
             ...(colKey === "expand" ? { expanding: "expander" } : {}),
             ...(colKey === "icon" ? { expanding: "none" } : {}),
             children: (
                 rowKey === "head" ? (
-                    colKey === "drag" || colKey === "expand" ? null : $(Text,{ key: "text", value: caption })
+                    /*colKey === "drag" || colKey === "expand" ? null :*/ FixedWrapper($(Text,{ key: "text", value: caption}), enableFixed, rowKey, fixedRowsList)
                 ):
-                rowKey === "drag" ? enableDrag && getColDragElement() :
+                colKey==="drag" && rowKey === "drag" ? FixedWrapper($("div", {className: "emptyCell", key: "emptyCell"}), enableFixed, rowKey, fixedRowsList) :
+                rowKey === "drag" ? enableDrag && getColDragElement(rowKey) :
                 colKey === "expand" ? getExpanderElement() :
                 colKey === "drag" ? enableDrag && getRowDragElement() :
                 colKey === "input" ? $(ExampleInputLabel,{caption, inputKey: key}) :
-                colKey === "icon" ? "I" :
-                colKey === "c0" ? ByCell() :
-                colKey === "c1" ? ProjectCell() :
+                colKey === "icon" ? FixedWrapper("I",enableFixed, colKey, fixedColsList) :
+                colKey === "c0" ? FixedWrapper(ByCell(), enableFixed, colKey, fixedColsList) : 
+                colKey === "c1" ? ProjectCell(enableFixed, colKey, fixedColsList) :
                 colKey === "c2" ? StockCell() :
                 colKey === "c8" ? getCargoIconCell() :
                 colKey === "c9" ? NumMarkCell() :
@@ -171,8 +174,8 @@ function VdomListElement({maxFilterAreaWidth, setMaxFilterAreaWidth, enableDrag,
         )
     }
 
-    function getColDragElement() {
-        return $(ImageElement, { color: "adaptive", className: "dragElement", src: 'vdom-list-drag.svg' })
+    function getColDragElement(rowKey) {
+        return FixedWrapper($(ImageElement, { color: "adaptive", className: "dragElement", src: 'vdom-list-drag.svg' }), enableFixed, rowKey, fixedRowsList)
     }
 
     function getRowDragElement() {
@@ -189,7 +192,7 @@ function VdomListElement({maxFilterAreaWidth, setMaxFilterAreaWidth, enableDrag,
         return $(ImageElement, { className: "rowIconSize", src: 'vdom-flist-container.svg', key: "cargoIconCell" })
     }
 
-    const rowKeys = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19].map(k => "r" + k)
+    const rowKeys = Array(31).fill().map((_, i) => "r"+i)
     const byColumn = []
 
     useEffect(() => {
@@ -203,17 +206,20 @@ function VdomListElement({maxFilterAreaWidth, setMaxFilterAreaWidth, enableDrag,
         /*setMaxFilterAreaWidth(getMaxTableWidthWithout(cols, hidedColNames))
     }, [enableDrag, maxFilterAreaWidth])*/
 
+    const getCols = rowKey => cols.map(({colKey, caption,width}) => exCell(rowKey)({colKey, caption,width})).filter(Boolean)
+
     const listEl = $(GridRoot, {
         key: "list",
         identity: {},
         cols,
         children: [
-        ...(enableDrag ? cols.map(exCell("drag")).filter(Boolean) : []),
-        ...cols.map(exCell("head")).filter(Boolean),
-        ...rowKeys.flatMap(rowKey => cols.map(exCell(rowKey)).filter(Boolean)),
+        ...(enableDrag ? getCols("drag") : []),
+        ...getCols("head"),
+        ...rowKeys.flatMap(rowKey => getCols(rowKey)),
         ],
         rows: rowKeys.map(rowKey=>({rowKey})),
     })
+    //console.log(listEl.props.children);
     const children = [
         listEl,
         $(Highlighter,{key:"row-highlighter", attrName:"data-row-key"}),
@@ -244,6 +250,13 @@ function App() {
     const [state, setState] = useState({})
     const [maxFilterAreaWidth, setMaxFilterAreaWidth] = useState(0)
     const [cols, setCols] = useState([])
+
+    const [enableFixed, setEnableFixed] = useState(true)
+    const defaultFixedRowsList = ["drag","head"];
+    const defaultFixedColsList = [];
+    const [fixedRowsList, setFixedRowsList] = useState(defaultFixedRowsList);
+    const [fixedColsList, setFixedColsList] = useState(defaultFixedColsList);
+
     const { noFilters, showSome0, showSome1, enableDrag = true} = state
     const identities = useMemo(() => ({ lt: {}, rt: {} }), [])
 
@@ -262,11 +275,24 @@ function App() {
     }
     
     const dragOffClick = useCallback(() => {
-        const hidedColNames = ["expand"]
-        enableDrag && hidedColNames.push("drag")
+        const hidedColNames = ["expand", enableDrag && "drag"].filter(Boolean)
         setMaxFilterAreaWidth(getMaxTableWidthWithout(cols, hidedColNames))
         setState(was => ({ ...was, enableDrag: !enableDrag }))
     }, [cols,setCols,enableDrag])
+
+    const fixedEnableClick = useCallback(()=>{
+        setEnableFixed(was=> { 
+            if (was) {
+                setFixedRowsList([])
+                setFixedColsList([])
+            }
+            else{
+                setFixedRowsList(defaultFixedRowsList)
+                setFixedColsList(defaultFixedColsList)
+            }
+            return !was
+        })
+    }, [enableFixed])
 
     return  $(PopupManager, {}, $(NoCaptionContext.Provider,{value:false,key:"filterArea"},
             $(FilterArea, {
@@ -286,6 +312,8 @@ function App() {
                         ModeButton({ key: "show all 1", setState, dataKey: "showSome1", caption: "show all 1"  }),
                         filterButton({ key: "dragOff", onClick: dragOffClick, caption: (enableDrag ? "disable" : "enable") + " drag",
                         BGcolor: enableDrag ? "lightPrimary" : "green" }),
+                        filterButton({ key: "fixedEnable", onClick: fixedEnableClick, caption: (enableFixed ? "disable" : "enable") + " fixed",
+                        BGcolor: enableFixed ? "lightPrimary" : "green" }),
                     ]
                 }),
                 filterButton({ key: 9, area: "lt", caption: "20" }),
@@ -294,9 +322,10 @@ function App() {
                 ModeButton({ key: "noFilters", area: "rt", setState, dataKey: "noFilters", 
                 caption: $(ImageElement, {src:"vdom-flist-hidefilters.svg", className:"hideFilterIcon", key:"hideFiltersImage", color:"#ffffff"}) }),
             ],
-            className: "filterArea darkPrimaryColor",
+            className: `filterArea darkPrimaryColor ${enableFixed ? "fixed": "default"}`,
         }),
-        $(VdomListElement, {maxFilterAreaWidth, setMaxFilterAreaWidth, enableDrag, cols, setCols})
+        $(VdomListElement, {maxFilterAreaWidth, setMaxFilterAreaWidth, enableDrag, cols, setCols, 
+            enableFixed, setEnableFixed, fixedColsList, fixedRowsList})
     ))
 }
 
